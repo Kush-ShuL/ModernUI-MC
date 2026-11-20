@@ -9,6 +9,7 @@
     "MixinClipboard",
     "MixinCore",
     "MixinModernKeyEvent",
+    "MixinPointerIcon",
     "AccessClientTextTooltip",
     "AccessOptions",
     "MixinChatFormatting",
