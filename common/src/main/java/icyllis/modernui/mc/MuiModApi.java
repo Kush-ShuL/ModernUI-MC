@@ -19,8 +19,8 @@
 package icyllis.modernui.mc;
 
 import com.mojang.blaze3d.platform.Window;
-import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.renderpearl.api.device.GpuDevice;
+import com.mojang.renderpearl.api.textures.GpuTexture;
 import icyllis.modernui.ModernUI;
 import icyllis.modernui.annotation.MainThread;
 import icyllis.modernui.annotation.RenderThread;
@@ -92,7 +92,7 @@ public abstract class MuiModApi {
     public interface OnScreenChangeListener {
 
         /**
-         * Called when {@link Minecraft#setScreen(Screen)} is called, and after Forge's
+         * Called when {@link net.minecraft.client.gui.Gui#setScreen(Screen)} is called, and after Forge's
          * event is fired.
          *
          * @param oldScreen the old screen
@@ -131,7 +131,7 @@ public abstract class MuiModApi {
     public interface OnPreKeyInputListener {
 
         /**
-         * Called when {@link org.lwjgl.glfw.GLFWKeyCallbackI} invoked.
+         * Called when Minecraft receives a keyboard event.
          */
         void onPreKeyInput(long window, int action, KeyEvent event);
     }
@@ -246,7 +246,7 @@ public abstract class MuiModApi {
      * to describe the screen properties.
      * <p>
      * This method is deprecated, use {@link #createScreen}
-     * and {@link Minecraft#setScreen(Screen)}.
+     * and {@link net.minecraft.client.gui.Gui#setScreen(Screen)}.
      *
      * @param fragment the main fragment
      */
@@ -287,7 +287,7 @@ public abstract class MuiModApi {
 
     /**
      * Creates a Modern UI screen with the given Fragment instance and optional callback.
-     * To start the lifecycle of the fragment, use {@link Minecraft#setScreen(Screen)}.
+     * To start the lifecycle of the fragment, use {@link net.minecraft.client.gui.Gui#setScreen(Screen)}.
      * The method must be called from client main thread.
      * <p>
      * This is served as a local interaction model, the server will not intersect with this before.
@@ -433,8 +433,9 @@ public abstract class MuiModApi {
 
     static {
         for (ChatFormatting f : ChatFormatting.values()) {
-            FORMATTING_TABLE[f.getChar()] = f;
-            FORMATTING_TABLE[Character.toUpperCase(f.getChar())] = f;
+            char code = f.toString().charAt(1);
+            FORMATTING_TABLE[code] = f;
+            FORMATTING_TABLE[Character.toUpperCase(code)] = f;
         }
     }
 
@@ -460,7 +461,9 @@ public abstract class MuiModApi {
     public abstract boolean isGLVersionPromoted();*/
 
     @ApiStatus.Internal
-    public abstract void loadEffect(GameRenderer gr, Identifier effect);
+    public void loadEffect(GameRenderer gr, Identifier effect) {
+        gr.getRequestedPostEffects().add(effect);
+    }
 
     /*public abstract ShaderInstance makeShaderInstance(ResourceProvider resourceProvider,
                                                       ResourceLocation resourceLocation,
@@ -484,7 +487,7 @@ public abstract class MuiModApi {
     public abstract RenderType createRenderType(String name, RenderSetup allState);
 
     /*
-     * Registers a callback to be called when {@link org.lwjgl.glfw.GLFWScrollCallback} is called.
+     * Registers a callback for Minecraft mouse wheel events.
      *
      * @param listener the listener to register
      * @see OnScrollListener
@@ -503,7 +506,7 @@ public abstract class MuiModApi {
     }*/
 
     /**
-     * Registers a callback to be called when {@link Minecraft#setScreen(Screen)} is called.
+     * Registers a callback to be called when {@link net.minecraft.client.gui.Gui#setScreen(Screen)} is called.
      *
      * @param listener the listener to register
      * @see OnScreenChangeListener

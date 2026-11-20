@@ -18,23 +18,17 @@
 
 package icyllis.modernui.mc.mixin;
 
-import com.mojang.blaze3d.platform.*;
+import com.mojang.blaze3d.platform.Window;
 import icyllis.modernui.ModernUI;
 import icyllis.modernui.graphics.MathUtil;
 import icyllis.modernui.mc.ModernUIClient;
-import icyllis.modernui.mc.ModernUIMod;
 import icyllis.modernui.mc.MuiModApi;
 import icyllis.modernui.util.DisplayMetrics;
-import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWErrorCallback;
-import org.lwjgl.system.Platform;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-import javax.annotation.Nullable;
 
 @Mixin(Window.class)
 public abstract class MixinWindow {
@@ -48,10 +42,6 @@ public abstract class MixinWindow {
     @Shadow
     public abstract int getHeight();
 
-    @Shadow
-    @Nullable
-    public abstract Monitor findBestMonitor();
-
     /**
      * @author BloCamLimb
      * @reason Make GUI scale not limited to even numbers when forceUnicode = true
@@ -64,8 +54,8 @@ public abstract class MixinWindow {
 
     @Inject(method = "setGuiScale", at = @At("HEAD"))
     private void onSetGuiScale(int scaleFactor, CallbackInfo ci) {
-        int oldScale = (int) guiScale;
-        int newScale = (int) scaleFactor;
+        int oldScale = guiScale;
+        int newScale = scaleFactor;
 
         DisplayMetrics metrics = new DisplayMetrics();
         metrics.setToDefaults();
@@ -78,19 +68,6 @@ public abstract class MixinWindow {
         metrics.densityDpi = (int) (metrics.density * DisplayMetrics.DENSITY_DEFAULT);
         metrics.scaledDensity = ModernUIClient.sFontScale * metrics.density;
 
-        Monitor monitor = findBestMonitor();
-        if (monitor != null) {
-            // physical DPI is usually not necessary...
-            try {
-                int[] w = {0}, h = {0};
-                org.lwjgl.glfw.GLFW.glfwGetMonitorPhysicalSize(monitor.getMonitor(), w, h);
-                VideoMode mode = monitor.getCurrentMode();
-                metrics.xdpi = 25.4f * mode.getWidth() / w[0];
-                metrics.ydpi = 25.4f * mode.getHeight() / h[0];
-            } catch (NoSuchMethodError ignored) {
-                // the method is missing in PojavLauncher-modified GLFW
-            }
-        }
         var ctx = ModernUI.getInstance();
         if (ctx != null) {
             ctx.getResources().updateConfiguration(ctx.getResources().getConfiguration(), metrics);

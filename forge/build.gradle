@@ -97,8 +97,8 @@ dependencies {
         transitive = false
     }
 
-    compileOnly("org.lwjgl:lwjgl-vulkan:3.4.1")
-    testCompileOnly("org.lwjgl:lwjgl-vulkan:3.4.1")
+    compileOnly("org.lwjgl:lwjgl-glfw:${lwjgl_version}")
+    testImplementation("org.lwjgl:lwjgl-glfw:${lwjgl_version}")
 
     testImplementation 'org.openjdk.jmh:jmh-core:1.35'
     testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.35'

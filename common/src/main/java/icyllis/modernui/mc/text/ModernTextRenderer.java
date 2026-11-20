@@ -21,10 +21,11 @@ package icyllis.modernui.mc.text;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import icyllis.modernui.graphics.MathUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.FormattedText;
@@ -34,6 +35,7 @@ import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 
 import javax.annotation.Nonnull;
+import java.util.function.Function;
 
 /**
  * Modern Text Engine designed for Minecraft text rendering system.
@@ -90,7 +92,7 @@ public final class ModernTextRenderer {
     }
 
     public float drawText(@Nonnull String text, float x, float y, int color, boolean dropShadow,
-                          @Nonnull Matrix4fc matrix, @Nonnull MultiBufferSource source,
+                          @Nonnull Matrix4fc matrix, @Nonnull Function<RenderType, VertexConsumer> source,
                           Font.DisplayMode displayMode, int colorBackground, int packedLight) {
         if (text.isEmpty()) {
             return x;
@@ -102,7 +104,7 @@ public final class ModernTextRenderer {
     }
 
     public float drawText(@Nonnull FormattedText text, float x, float y, int color, boolean dropShadow,
-                          @Nonnull Matrix4fc matrix, @Nonnull MultiBufferSource source,
+                          @Nonnull Matrix4fc matrix, @Nonnull Function<RenderType, VertexConsumer> source,
                           Font.DisplayMode displayMode, int colorBackground, int packedLight) {
         if (text == CommonComponents.EMPTY || text == FormattedText.EMPTY) {
             return x;
@@ -114,7 +116,7 @@ public final class ModernTextRenderer {
     }
 
     public float drawText(@Nonnull FormattedCharSequence text, float x, float y, int color, boolean dropShadow,
-                          @Nonnull Matrix4fc matrix, @Nonnull MultiBufferSource source,
+                          @Nonnull Matrix4fc matrix, @Nonnull Function<RenderType, VertexConsumer> source,
                           Font.DisplayMode displayMode, int colorBackground, int packedLight) {
         if (text == FormattedCharSequence.EMPTY) {
             return x;
@@ -126,7 +128,7 @@ public final class ModernTextRenderer {
     }
 
     public float drawText(@Nonnull TextLayout layout, float x, float y, int color, boolean dropShadow,
-                          @Nonnull Matrix4fc matrix, @Nonnull MultiBufferSource source,
+                          @Nonnull Matrix4fc matrix, @Nonnull Function<RenderType, VertexConsumer> source,
                           Font.DisplayMode displayMode, int colorBackground, int packedLight) {
         // ensure alpha, color can be ARGB, or can be RGB
         // we check if alpha <= 1, then make alpha = 255 (fully opaque)
@@ -233,7 +235,7 @@ public final class ModernTextRenderer {
 
     /*public static void drawText8xOutline(@Nonnull FormattedText text, float x, float y,
                                          int color, int outlineColor, @Nonnull Matrix4f matrix,
-                                         @Nonnull MultiBufferSource source) {
+                                         @Nonnull Function<RenderType, VertexConsumer> source) {
         if (text == CommonComponents.EMPTY || text == FormattedText.EMPTY) {
             return;
         }
@@ -268,7 +270,7 @@ public final class ModernTextRenderer {
 
     public void drawText8xOutline(@Nonnull FormattedCharSequence text, float x, float y,
                                   int color, int outlineColor, @Nonnull Matrix4fc matrix,
-                                  @Nonnull MultiBufferSource source, int packedLight) {
+                                  @Nonnull Function<RenderType, VertexConsumer> source, int packedLight) {
         if (text == FormattedCharSequence.EMPTY) {
             return;
         }

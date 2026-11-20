@@ -39,9 +39,7 @@ import icyllis.modernui.widget.LinearLayout;
 import icyllis.modernui.widget.Spinner;
 import icyllis.modernui.widget.TextView;
 import net.minecraft.client.resources.language.I18n;
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.util.tinyfd.TinyFileDialogs;
+import icyllis.modernui.mc.FileDialogs;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -131,32 +129,18 @@ public class PreferredFontAccordion implements View.OnClickListener,
             var openFile = new Button(context, null, R.attr.buttonOutlinedStyle);
             openFile.setText(I18n.get("gui.modernui.browseFiles"));
             openFile.setTextSize(14);
-            openFile.setOnClickListener(v1 -> CompletableFuture.runAsync(() -> {
-                String path;
-                try (MemoryStack stack = MemoryStack.stackPush()) {
-                    PointerBuffer filters = stack.mallocPointer(4);
-                    stack.nUTF8("*.ttf", true);
-                    filters.put(stack.getPointerAddress());
-                    stack.nUTF8("*.otf", true);
-                    filters.put(stack.getPointerAddress());
-                    stack.nUTF8("*.ttc", true);
-                    filters.put(stack.getPointerAddress());
-                    stack.nUTF8("*.otc", true);
-                    filters.put(stack.getPointerAddress());
-                    filters.rewind();
-                    path = TinyFileDialogs.tinyfd_openFileDialog(null, null,
-                            filters, "TrueType/OpenType Fonts (*.ttf;*.otf;*.ttc;*.otc)", false);
-                }
-                if (path != null) {
-                    v1.post(() -> {
-                        boolean changed = applyNewValue(v1.getContext(), path, mOnFontChanged);
+            openFile.setOnClickListener(button -> FileDialogs.open("TrueType/OpenType Fonts", "ttf;otf;ttc;otc")
+                    .thenAcceptAsync(file -> {
+                        if (file == null) {
+                            return;
+                        }
+                        String path = file.toString();
+                        boolean changed = applyNewValue(button.getContext(), path, mOnFontChanged);
                         if (changed) {
                             mInput.setText(path);
                         }
                         mSpinner.setSelection(0);
-                    });
-                }
-            }));
+                    }, Core.getUiThreadExecutor()));
             var params = new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
             params.gravity = Gravity.CENTER_VERTICAL;
             layout.addView(openFile, params);

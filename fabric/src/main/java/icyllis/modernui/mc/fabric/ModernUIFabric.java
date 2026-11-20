@@ -38,7 +38,6 @@ public class ModernUIFabric extends ModernUIMod implements ModInitializer {
             LOGGER.warn(MARKER, "Signature is missing");
         }
 
-        sVulkanModLoaded = FabricLoader.getInstance().isModLoaded("vulkanmod");
         sLegendaryTooltipsLoaded = FabricLoader.getInstance().isModLoaded("legendarytooltips");
         sUntranslatedItemsLoaded = FabricLoader.getInstance().isModLoaded("untranslateditems");
 

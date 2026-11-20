@@ -18,14 +18,19 @@
 
 package icyllis.modernui.mc;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTextureView;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.backend.opengl.GlDevice;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
+import com.mojang.renderpearl.backend.opengl.GlTextureView;
+import com.mojang.renderpearl.backend.vulkan.VulkanGpuTexture;
+import com.mojang.renderpearl.frontend.FrontendGpuDevice;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.*;
 import icyllis.arc3d.core.MathUtil;
 import icyllis.arc3d.core.*;
@@ -85,6 +90,9 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.joml.Matrix3x2f;
 import org.lwjgl.opengl.GL33C;
+import org.lwjgl.sdl.SDLKeyboard;
+import org.lwjgl.sdl.SDLMouse;
+import org.lwjgl.sdl.SDLVideo;
 import org.lwjgl.system.MemoryUtil;
 
 import javax.annotation.Nonnull;
@@ -94,7 +102,7 @@ import java.io.PrintWriter;
 import java.util.*;
 
 import static icyllis.modernui.mc.ModernUIMod.LOGGER;
-import static org.lwjgl.glfw.GLFW.*;
+import static com.mojang.blaze3d.platform.InputConstants.*;
 
 /**
  * Manage UI thread and connect Minecraft to Modern UI view system at most bottom level.
@@ -158,15 +166,13 @@ public abstract class UIManager implements LifecycleOwner {
     protected boolean mClearNextMainTarget = false;
     protected boolean mAlwaysClearMainTarget = false;
     private long mLastPurgeNanos;
+    private Identifier mDebugPostEffect;
 
     private GlTexture_Wrapped mLayerTexture;
     private GlTextureView mLayerTextureView;
 
-    private GpuTexture mLayerTexture_Vulkan;
+    private VulkanGpuTexture mLayerTexture_Vulkan;
     private GpuTextureView mLayerTextureView_Vulkan;
-
-    @RawPtr
-    private VulkanImage mLastSubmittedVulkanLayer;
 
     public final TooltipRenderer mTooltipRenderer = new TooltipRenderer();
 
@@ -289,7 +295,7 @@ public abstract class UIManager implements LifecycleOwner {
                 minecraft.player.closeContainer();
             }
         } else {
-            minecraft.setScreen(screen.getPreviousScreen());
+            minecraft.gui.setScreen(screen.getPreviousScreen());
         }
     }
 
@@ -365,7 +371,7 @@ public abstract class UIManager implements LifecycleOwner {
         // ensure it's resized
         resize(minecraft.getWindow().getWidth(), minecraft.getWindow().getHeight());
         //TODO core framework lacks IME support
-        minecraft.textInputManager().startTextInput();
+        minecraft.textInputManager().startTextInput(screen);
     }
 
     @UiThread
@@ -505,7 +511,6 @@ public abstract class UIManager implements LifecycleOwner {
      * From screen
      *
      * @param natural natural or synthetic
-     * @see org.lwjgl.glfw.GLFWCursorPosCallbackI
      * @see net.minecraft.client.MouseHandler
      * @see MuiScreen
      */
@@ -536,17 +541,7 @@ public abstract class UIManager implements LifecycleOwner {
                     window.getWidth() / window.getScreenWidth());
             float y = (float) (mouseHandler.ypos() *
                     window.getHeight() / window.getScreenHeight());
-            int mods = 0;
-            if (minecraft.hasControlDown()) {
-                mods |= KeyEvent.META_CONTROL_ON;
-            }
-            if (InputConstants.isKeyDown(window, InputConstants.KEY_LSUPER) ||
-                    InputConstants.isKeyDown(window, InputConstants.KEY_RSUPER)) {
-                mods |= KeyEvent.META_SUPER_ON;
-            }
-            if (minecraft.hasShiftDown()) {
-                mods |= KeyEvent.META_SHIFT_ON;
-            }
+            int mods = SdlInput.modifiers(SDLKeyboard.SDL_GetModState());
             MotionEvent event = MotionEvent.obtain(now, MotionEvent.ACTION_SCROLL,
                     x, y, mods);
             event.setAxisValue(MotionEvent.AXIS_HSCROLL, (float) scrollX);
@@ -558,77 +553,74 @@ public abstract class UIManager implements LifecycleOwner {
     public void onPostMouseInput(int button, int action, int mods) {
         // We should ensure (overlay == null && screen != null)
         // and the screen must be a mui screen
-        if (minecraft.getOverlay() == null && mScreen != null) {
+        if (minecraft.gui.overlay() == null && mScreen != null) {
             //ModernUI.LOGGER.info(MARKER, "Button: {} {} {}", event.getButton(), event.getAction(), event.getMods());
             final long now = Core.timeNanos();
             float x = (float) (minecraft.mouseHandler.xpos() *
                     minecraft.getWindow().getWidth() / minecraft.getWindow().getScreenWidth());
             float y = (float) (minecraft.mouseHandler.ypos() *
                     minecraft.getWindow().getHeight() / minecraft.getWindow().getScreenHeight());
-            int buttonState = 0;
-            for (int i = 0; i < 5; i++) {
-                if (glfwGetMouseButton(minecraft.getWindow().handle(), i) == GLFW_PRESS) {
-                    buttonState |= 1 << i;
-                }
-            }
+            int sdlButtons = SDLMouse.SDL_GetMouseState(null, null);
+            int buttonState = modernMouseButtons(sdlButtons);
+            int actionButton = modernMouseButtons(1 << (button - 1));
+            int modifiers = SdlInput.modifiers(mods);
             mButtonState = buttonState;
-            int hoverAction = action == GLFW_PRESS ?
+            int hoverAction = action == PRESS ?
                     MotionEvent.ACTION_BUTTON_PRESS : MotionEvent.ACTION_BUTTON_RELEASE;
-            int touchAction = action == GLFW_PRESS ?
+            int touchAction = action == PRESS ?
                     MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP;
-            int actionButton = 1 << button;
             MotionEvent ev = MotionEvent.obtain(now, hoverAction, actionButton,
-                    x, y, mods, buttonState, 0);
+                    x, y, modifiers, buttonState, 0);
             mRoot.enqueueInputEvent(ev);
             if ((touchAction == MotionEvent.ACTION_DOWN && (buttonState ^ actionButton) == 0)
                     || (touchAction == MotionEvent.ACTION_UP && buttonState == 0)) {
                 ev = MotionEvent.obtain(now, touchAction, actionButton,
-                        x, y, mods, buttonState, 0);
+                        x, y, modifiers, buttonState, 0);
                 mRoot.enqueueInputEvent(ev);
                 //LOGGER.info("Enqueue mouse event: {}", ev);
             }
         }
     }
 
-    public void onKeyPress(int keyCode, int scanCode, int mods) {
-        KeyEvent keyEvent = KeyEvent.obtain(Core.timeNanos(), KeyEvent.ACTION_DOWN, keyCode, 0,
-                mods, scanCode, 0);
-        mRoot.enqueueInputEvent(keyEvent);
+    private static int modernMouseButtons(int buttons) {
+        // SDL numbers the middle button before the right button.
+        return (buttons & ~0b110) | ((buttons & 0b010) << 1) | ((buttons & 0b100) >> 1);
     }
 
-    public void onKeyRelease(int keyCode, int scanCode, int mods) {
-        KeyEvent keyEvent = KeyEvent.obtain(Core.timeNanos(), KeyEvent.ACTION_UP, keyCode, 0,
-                mods, scanCode, 0);
-        mRoot.enqueueInputEvent(keyEvent);
+    void onKeyInput(net.minecraft.client.input.KeyEvent event, int action) {
+        mRoot.enqueueInputEvent(KeyEvent.obtain(
+                Core.timeNanos(), action, SdlInput.keyCode(event), 0,
+                SdlInput.modifiers(event.modifiers()), event.key(), 0
+        ));
     }
 
     protected void onPreKeyInput(int action, net.minecraft.client.input.KeyEvent event) {
         if (TooltipRenderer.sTooltip) {
-            if (action != GLFW_RELEASE) {
+            if (action != RELEASE) {
                 switch (event.key()) {
-                    case GLFW_KEY_UP -> mTooltipRenderer.updateArrowMovement(-1);
-                    case GLFW_KEY_DOWN -> mTooltipRenderer.updateArrowMovement(1);
+                    case KEY_UP -> mTooltipRenderer.updateArrowMovement(-1);
+                    case KEY_DOWN -> mTooltipRenderer.updateArrowMovement(1);
                 }
             }
         }
         if (!event.hasControlDownWithQuirk() || !event.hasShiftDown() || !ModernUIMod.isDeveloperMode()) {
             return;
         }
-        if (action == GLFW_PRESS) {
+        if (action == PRESS) {
             switch (event.key()) {
-                case GLFW_KEY_Y -> takeScreenshot();
-                //case GLFW_KEY_H -> open(new TestFragment());
-                //case GLFW_KEY_J -> open(new TestPauseFragment());
-                case GLFW_KEY_U -> {
+                case KEY_Y -> takeScreenshot();
+                //case KEY_H -> open(new TestFragment());
+                //case KEY_J -> open(new TestPauseFragment());
+                case KEY_U -> {
                     mClearNextMainTarget = true;
                 }
-                case GLFW_KEY_I -> {
+                case KEY_I -> {
                     mTestChars ^= true;
                 }
-                case GLFW_KEY_N -> mDecor.postInvalidate();
-                case GLFW_KEY_P -> dump();
-                case GLFW_KEY_M -> changeRadialBlur();
-                case GLFW_KEY_T -> {
+                case KEY_N -> mDecor.postInvalidate();
+                case KEY_P -> dump();
+                case KEY_M -> changeRadialBlur();
+                case KEY_T -> {
                     /*String text = "\u09b9\u09cd\u09af\u09be\n\u09b2\u09cb" + ChatFormatting.RED + "\uD83E\uDD14" +
                             ChatFormatting.BOLD + "\uD83E\uDD14\uD83E\uDD14";
                     for (int i = 1; i <= 10; i++) {
@@ -655,8 +647,8 @@ public abstract class UIManager implements LifecycleOwner {
                         }*/
                     }
                 }
-                case GLFW_KEY_G -> {
-                /*if (minecraft.screen == null && minecraft.isLocalServer() &&
+                case KEY_G -> {
+                /*if (minecraft.gui.screen() == null && minecraft.isLocalServer() &&
                         minecraft.getSingleplayerServer() != null && !minecraft.getSingleplayerServer().isPublished()) {
                     start(new TestPauseUI());
                 }*/
@@ -667,21 +659,21 @@ public abstract class UIManager implements LifecycleOwner {
                             GlyphManager.getInstance().debug();
                         }
                 }
-                case GLFW_KEY_V -> {
+                case KEY_V -> {
                     if (ModernUIMod.isTextEngineEnabled()) {
                         //TextLayoutEngine.getInstance().dumpEmojiAtlas();
                         TextLayoutEngine.getInstance().dumpBitmapFonts();
                     }
                 }
-                case GLFW_KEY_O -> mNoRender = !mNoRender;
-                case GLFW_KEY_F -> System.gc();
+                case KEY_O -> mNoRender = !mNoRender;
+                case KEY_F -> System.gc();
             }
         }
     }
 
     public void onGameLoadFinished() {
         if (sDingEnabled) {
-            glfwRequestWindowAttention(minecraft.getWindow().handle());
+            SDLVideo.SDL_FlashWindow(minecraft.getWindow().handle(), SDLVideo.SDL_FLASH_BRIEFLY);
             final String sound = sDingSound;
             final float volume = sDingVolume;
             if (volume > 0) {
@@ -785,18 +777,20 @@ public abstract class UIManager implements LifecycleOwner {
     }*/
 
     protected void changeRadialBlur() {
-        if (minecraft.gameRenderer.currentPostEffect() == null) {
+        var effects = minecraft.gameRenderer.getRequestedPostEffects();
+        if (mDebugPostEffect == null || !effects.remove(mDebugPostEffect)) {
             LOGGER.info(MARKER, "Load post-processing effect");
             final Identifier effect;
-            if (InputConstants.isKeyDown(minecraft.getWindow(), GLFW_KEY_RIGHT_SHIFT)) {
+            if (InputConstants.isKeyDown(KEY_RSHIFT)) {
                 effect = ModernUIMod.location("grayscale");
             } else {
                 effect = ModernUIMod.location("radial_blur");
             }
             MuiModApi.get().loadEffect(minecraft.gameRenderer, effect);
+            mDebugPostEffect = effect;
         } else {
             LOGGER.info(MARKER, "Stop post-processing effect");
-            minecraft.gameRenderer.clearPostEffect();
+            mDebugPostEffect = null;
         }
     }
 
@@ -808,12 +802,12 @@ public abstract class UIManager implements LifecycleOwner {
         String str = builder.toString();
         if (minecraft.level != null) {
             /*try {
-                SEND_TO_CHAT.invoke(minecraft.gui.getChat(), ,
+                SEND_TO_CHAT.invoke(minecraft.gui.hud.getChat(), ,
                         0xCBD366, minecraft.gui.getGuiTicks(), false);
 
             } catch (IllegalAccessException | InvocationTargetException ignored) {
             }*/
-            minecraft.gui.getChat().addClientSystemMessage(Component.literal(str).withStyle(ChatFormatting.GRAY));
+            minecraft.gui.hud.getChat().addClientSystemMessage(Component.literal(str).withStyle(ChatFormatting.GRAY));
         }
         LOGGER.info(MARKER, str);
     }
@@ -839,7 +833,7 @@ public abstract class UIManager implements LifecycleOwner {
             pw.println((Object) null);
         }
 
-        Screen screen = minecraft.screen;
+        Screen screen = minecraft.gui.screen();
         if (screen != null) {
             pw.print("Screen: ");
             pw.println(screen.getClass());
@@ -942,7 +936,11 @@ public abstract class UIManager implements LifecycleOwner {
 
 
         if (context.getDevice() instanceof GLDevice) {
-            // force changing Blaze3D state
+            // Arc3D issues GL calls outside RenderPearl's state cache.
+            GL33C.glBindFramebuffer(GL33C.GL_READ_FRAMEBUFFER,
+                    GlStateManager.getFrameBuffer(GL33C.GL_READ_FRAMEBUFFER));
+            GL33C.glBindFramebuffer(GL33C.GL_DRAW_FRAMEBUFFER,
+                    GlStateManager.getFrameBuffer(GL33C.GL_DRAW_FRAMEBUFFER));
             for (int i = 0; i <= 3; i++) {
                 GL33C.glBindSampler(i, 0);
             }
@@ -951,7 +949,7 @@ public abstract class UIManager implements LifecycleOwner {
             GL33C.glDisable(GL33C.GL_SCISSOR_TEST);
             GlStateManager._blendFuncSeparate(GL33C.GL_SRC_ALPHA, GL33C.GL_ONE_MINUS_SRC_ALPHA, GL33C.GL_ONE, GL33C.GL_ZERO);
             GL33C.glBlendFuncSeparate(GL33C.GL_SRC_ALPHA, GL33C.GL_ONE_MINUS_SRC_ALPHA, GL33C.GL_ONE, GL33C.GL_ZERO);
-            GlStateManager._enableBlend();
+            GlStateManager._enableBlend(0);
             GL33C.glEnable(GL33C.GL_BLEND);
             GL33C.glBlendEquation(GL33C.GL_FUNC_ADD);
             GlStateManager._disableDepthTest();
@@ -974,6 +972,8 @@ public abstract class UIManager implements LifecycleOwner {
 
 
         if (surface != null) {
+            var device = RenderSystem.getDevice();
+            GpuTextureView layerView = null;
             if (surface.getImage() instanceof @RawPtr GLTexture layer) {
                 // draw off-screen target to Minecraft mainTarget (not the default framebuffer)
                 if (mLayerTexture == null || mLayerTexture.source != layer) {
@@ -982,54 +982,47 @@ public abstract class UIManager implements LifecycleOwner {
                         mLayerTexture.close();
                     }
                     layer.ref();
-                    mLayerTexture = new GlTexture_Wrapped(layer); // move
-                    mLayerTextureView = (GlTextureView) RenderSystem.getDevice()
-                            .createTextureView(mLayerTexture);
+                    var backend = (GlDevice) ((FrontendGpuDevice) device).backend;
+                    mLayerTexture = new GlTexture_Wrapped(layer, backend.frameBufferCache()); // move
+                    mLayerTextureView = (GlTextureView) device.createTextureView(mLayerTexture);
                 } else {
                     // ensure there's ref before submitting to the GPU
                     mLayerTexture.touch();
                 }
+                layerView = mLayerTextureView;
+            } else if (surface.getImage() instanceof @RawPtr VulkanImage layer) {
+                int width = layer.getWidth();
+                int height = layer.getHeight();
+                boolean resize = mLayerTexture_Vulkan == null
+                        || mLayerTexture_Vulkan.getWidth(0) != width || mLayerTexture_Vulkan.getHeight(0) != height;
+                if (resize) {
+                    if (mLayerTexture_Vulkan != null) {
+                        mLayerTextureView_Vulkan.close();
+                        mLayerTexture_Vulkan.close();
+                    }
+                    mLayerTexture_Vulkan = (VulkanGpuTexture) device.createTexture(
+                            "Modern UI layer", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
+                            GpuFormat.RGBA8_UNORM, width, height, 1, 1);
+                    mLayerTextureView_Vulkan = device.createTextureView(mLayerTexture_Vulkan);
+                }
+                if (resize || recording != null) {
+                    VulkanIntegration.copyLayer(device, layer, mLayerTexture_Vulkan);
+                }
+                layerView = mLayerTextureView_Vulkan;
+            }
+            if (layerView != null) {
                 gr.nextStratum();
                 MuiModApi.get().submitGuiElementRenderState(gr, new BlitRenderState(
                         // render target is always premultiplied
                         RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA,
                         // using the nearest sampler is performant
-                        TextureSetup.singleTexture(mLayerTextureView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST)),
+                        TextureSetup.singleTexture(layerView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST)),
                         new Matrix3x2f().scale(1.0F / minecraft.getWindow().getGuiScale()),
                         0, 0, minecraft.getWindow().getWidth(), minecraft.getWindow().getHeight(),
                         0.0F, 1.0F, 0.0F, 1.0F,
                         ~0,
                         /*scissorArea*/ null
                 ));
-            } else if (surface.getImage() instanceof @RawPtr VulkanImage layer) {
-                if (ModernUIMod.isVulkanModLoaded()) {
-                    if (mLayerTexture_Vulkan == null || !VulkanModIntegration.sameImage(mLayerTexture_Vulkan, layer)) {
-                        if (mLayerTexture_Vulkan != null) {
-                            // there's nothing to close, because the resource is managed by us
-                            mLayerTexture_Vulkan = null;
-                            mLayerTextureView_Vulkan.close();
-                        }
-                        mLayerTexture_Vulkan = VulkanModIntegration.wrapTextureImageFromArc3D(layer);
-                        mLayerTextureView_Vulkan = RenderSystem.getDevice()
-                                .createTextureView(mLayerTexture_Vulkan);
-                    }
-                    layer.refCommandBuffer();
-                    VulkanModIntegration.syncImageLayoutFromArc3D(mLayerTexture_Vulkan, layer);
-                    gr.nextStratum();
-                    MuiModApi.get().submitGuiElementRenderState(gr, new BlitRenderState(
-                            // render target is always premultiplied
-                            RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA,
-                            // using the nearest sampler is performant
-                            TextureSetup.singleTexture(mLayerTextureView_Vulkan, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST)),
-                            new Matrix3x2f().scale(1.0F / minecraft.getWindow().getGuiScale()),
-                            0, 0, minecraft.getWindow().getWidth(), minecraft.getWindow().getHeight(),
-                            0.0F, 1.0F, 0.0F, 1.0F,
-                            ~0,
-                            /*scissorArea*/ null
-                    ));
-                    VulkanModIntegration.addFrameOp(layer::unrefCommandBuffer);
-                }
-                mLastSubmittedVulkanLayer = layer;
             }
         }
         RefCnt.move(surface);
@@ -1078,8 +1071,8 @@ public abstract class UIManager implements LifecycleOwner {
         mRoot.mHandler.post(this::restoreLayoutTransition);
         mRoot.mRawDrawHandlers.clear();
         mScreen = null;
-        glfwSetCursor(minecraft.getWindow().handle(), MemoryUtil.NULL);
-        minecraft.textInputManager().stopTextInput();
+        minecraft.getWindow().selectCursor(CursorTypes.ARROW);
+        minecraft.textInputManager().stopTextInput(screen);
     }
 
     public void drawExtTooltip(ItemStack itemStack,
@@ -1132,7 +1125,7 @@ public abstract class UIManager implements LifecycleOwner {
 
     public void renderAbove(GuiRenderState guiRenderState) {
         if (minecraft.isRunning() && mRunning &&
-                mScreen == null && minecraft.getOverlay() == null) {
+                mScreen == null && minecraft.gui.overlay() == null) {
             // Render the UI above everything
             render(new GuiGraphicsExtractor(minecraft, guiRenderState, 0, 0), 0, 0, 0);
         }
@@ -1156,7 +1149,7 @@ public abstract class UIManager implements LifecycleOwner {
                     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                     int error = glGetError();
                     LOGGER.info("Clear main target, boundFramebuffer: {}, mainTarget: {}, error: {}",
-                            boundFramebuffer, minecraft.getMainRenderTarget().frameBufferId,
+                            boundFramebuffer, minecraft.gameRenderer.mainRenderTarget().frameBufferId,
                             Integer.toHexString(error));
                     mClearNextMainTarget = false;
                 }*/
@@ -1171,12 +1164,6 @@ public abstract class UIManager implements LifecycleOwner {
                 // we can drop the ref after submitting to the GPU
                 mLayerTexture.close();
             }
-            if (mLayerTexture_Vulkan != null && mLastSubmittedVulkanLayer != null) {
-                if (ModernUIMod.isVulkanModLoaded()) {
-                    VulkanModIntegration.syncImageLayoutFromVulkan(mLayerTexture_Vulkan, mLastSubmittedVulkanLayer);
-                }
-                mLastSubmittedVulkanLayer = null;
-            }
             if (!minecraft.isRunning() && mRunning) {
                 mRunning = false;
                 mRoot.mHandler.post(this::finish);
@@ -1186,9 +1173,10 @@ public abstract class UIManager implements LifecycleOwner {
                     mLayerTexture = null;
                 }
                 if (mLayerTexture_Vulkan != null) {
-                    mLayerTexture_Vulkan = null;
                     mLayerTextureView_Vulkan.close();
+                    mLayerTexture_Vulkan.close();
                     mLayerTextureView_Vulkan = null;
+                    mLayerTexture_Vulkan = null;
                 }
                 // later destroy() will be called
             }
@@ -1218,7 +1206,7 @@ public abstract class UIManager implements LifecycleOwner {
                     sb.appendCodePoint(cp++);
                 }
                 mTestCodepoint = end;
-                minecraft.gui.getChat().addClientSystemMessage(Component.literal(sb.toString()));
+                minecraft.gui.hud.getChat().addClientSystemMessage(Component.literal(sb.toString()));
             }
         }
     }
@@ -1234,7 +1222,6 @@ public abstract class UIManager implements LifecycleOwner {
         if (sInstance != null) {
             AudioManager.getInstance().close();
             try {
-                // in case of GLFW is terminated too early
                 sInstance.mUiThread.join(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -1441,7 +1428,7 @@ public abstract class UIManager implements LifecycleOwner {
                     GLTexture layer = surface.getAttachedTexture(GL_COLOR_ATTACHMENT0);
 
                     // draw off-screen target to Minecraft mainTarget (not the default framebuffer)
-                    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, minecraft.getMainRenderTarget().frameBufferId);
+                    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, minecraft.gameRenderer.mainRenderTarget().frameBufferId);
 
                     // do alpha fade in
                     //float alpha = (int) Math.min(300, mElapsedTimeMillis) / 300f;
@@ -1466,8 +1453,11 @@ public abstract class UIManager implements LifecycleOwner {
 
         @MainThread
         protected void applyPointerIcon(int pointerType) {
-            minecraft.schedule(() -> glfwSetCursor(minecraft.getWindow().handle(),
-                    PointerIcon.getSystemIcon(pointerType).getHandle()));
+            minecraft.schedule(() -> minecraft.getWindow().selectCursor(switch (pointerType) {
+                case PointerIcon.TYPE_HAND -> CursorTypes.POINTING_HAND;
+                case PointerIcon.TYPE_TEXT -> CursorTypes.IBEAM;
+                default -> CursorTypes.ARROW;
+            }));
         }
 
         @Override

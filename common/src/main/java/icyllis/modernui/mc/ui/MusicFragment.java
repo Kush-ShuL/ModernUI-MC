@@ -34,7 +34,6 @@ import icyllis.modernui.util.DataSet;
 import icyllis.modernui.view.*;
 import icyllis.modernui.widget.*;
 
-import java.nio.file.Path;
 import java.util.*;
 
 import static icyllis.modernui.view.ViewGroup.LayoutParams.*;
@@ -110,12 +109,11 @@ public class MusicFragment extends Fragment {
 
                 {
                     var button = new Button(context, null, R.attr.borderlessButtonStyle);
-                    button.setOnClickListener(v -> {
-                        String path = MusicPlayer.openDialogGet();
+                    button.setOnClickListener(v -> MusicPlayer.openDialog().thenAcceptAsync(path -> {
                         if (path != null) {
-                            mMusicPlayer.replaceTrack(Path.of(path));
+                            mMusicPlayer.replaceTrack(path);
                         }
-                    });
+                    }, Core.getUiThreadExecutor()));
                     var trackName = mMusicPlayer.getTrackName();
                     button.setText(Objects.requireNonNullElse(trackName, "Play A Music!"));
                     button.setMinWidth(button.dp(200));

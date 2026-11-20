@@ -173,7 +173,7 @@ public class MenuScreen<T extends @NonNull AbstractContainerMenu>
             }
         }
 
-        mHost.onKeyPress(event.key(), event.scancode(), event.modifiers());
+        mHost.onKeyInput(event, icyllis.modernui.view.KeyEvent.ACTION_DOWN);
         return false;
     }
 
@@ -182,7 +182,7 @@ public class MenuScreen<T extends @NonNull AbstractContainerMenu>
         if (getFocused() != null && getFocused().keyReleased(event)) {
             return true;
         }
-        mHost.onKeyRelease(event.key(), event.scancode(), event.modifiers());
+        mHost.onKeyInput(event, icyllis.modernui.view.KeyEvent.ACTION_UP);
         return false;
     }
 

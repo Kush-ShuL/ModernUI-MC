@@ -6,7 +6,6 @@
   "plugin": "icyllis.modernui.mc.text.MixinConfigPlugin",
   "package": "icyllis.modernui.mc.text.mixin",
   "client": [
-    "AccessBufferSource",
     "AccessFontManager",
     "MixinActiveTextCollector",
     "MixinBidiReorder",
@@ -15,6 +14,7 @@
     "MixinEditBox",
     "MixinFontManager",
     "MixinFontRenderer",
+    "MixinTextFeatureRenderer",
     "MixinFormattedCharSequence",
     "MixinGameRenderer",
     "MixinGuiRenderer",

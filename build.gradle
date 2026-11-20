@@ -1,6 +1,6 @@
 plugins {
     id 'maven-publish'
-    id 'org.relativitymc.neo-loom' version '1.16-SNAPSHOT' apply false
+    id 'org.relativitymc.neo-loom' version '1.19.1' apply false
     id 'com.gradleup.shadow' version '9.3.0' apply false
 }
 
@@ -28,17 +28,6 @@ subprojects {
         mavenCentral()
         maven {
             url "https://central.sonatype.com/repository/maven-snapshots"
-        }
-        exclusiveContent {
-            forRepository {
-                maven {
-                    name = "Modrinth"
-                    url = "https://api.modrinth.com/maven"
-                }
-            }
-            filter {
-                includeGroup "maven.modrinth"
-            }
         }
     }
 

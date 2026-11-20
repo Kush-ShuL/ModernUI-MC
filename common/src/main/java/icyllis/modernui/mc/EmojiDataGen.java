@@ -20,9 +20,6 @@ package icyllis.modernui.mc;
 
 import com.google.gson.*;
 import icyllis.modernui.graphics.text.Emoji;
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.util.tinyfd.TinyFileDialogs;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -41,71 +38,61 @@ public class EmojiDataGen {
         // https://raw.githubusercontent.com/iamcal/emoji-data/master/emoji.json
         // https://raw.githubusercontent.com/joypixels/emoji-toolkit/master/emoji.json
         // https://raw.githubusercontent.com/googlefonts/emoji-metadata/main/emoji_16_0_ordering.json
-        final String iam_cal, joy_pixels, google_fonts, output;
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            PointerBuffer filters = stack.mallocPointer(1);
-            stack.nUTF8("*.json", true);
-            filters.put(stack.getPointerAddress());
-            filters.rewind();
-            iam_cal = TinyFileDialogs.tinyfd_openFileDialog("Open IamCal", null,
-                    filters, "JSON File", false);
-            joy_pixels = TinyFileDialogs.tinyfd_openFileDialog("Open JoyPixels", null,
-                    filters, "JSON File", false);
-            google_fonts = TinyFileDialogs.tinyfd_openFileDialog("Open GoogleFonts", null,
-                    filters, "JSON File", false);
-            output = TinyFileDialogs.tinyfd_saveFileDialog(null, "emoji_data.json",
-                    filters, "JSON File");
+        if (args.length != 4) {
+            throw new IllegalArgumentException("Usage: EmojiDataGen <iamcal.json> <joypixels.json> <googlefonts.json> <output.json>");
         }
-        if (iam_cal != null && joy_pixels != null && google_fonts != null && output != null) {
-            var gson = new Gson();
-            var iam_cal_data = read(gson, iam_cal, EmojiEntry[].class);
-            var joy_pixels_data = read(gson, joy_pixels, JsonObject.class);
-            var google_fonts_data = read(gson, google_fonts, JsonArray.class);
-            var map = Arrays.stream(iam_cal_data)
-                    .collect(Collectors.toMap(e -> e.unified.toLowerCase(Locale.ROOT), Function.identity(),
-                            (x, y) -> x, LinkedHashMap::new));
+        generate(args[0], args[1], args[2], args[3]);
+    }
 
-            for (var e : joy_pixels_data.entrySet()) {
-                JsonObject o = e.getValue().getAsJsonObject();
-                JsonObject ci = o.getAsJsonObject("code_points");
+    private static void generate(String iam_cal, String joy_pixels, String google_fonts, String output) {
+        var gson = new Gson();
+        var iam_cal_data = read(gson, iam_cal, EmojiEntry[].class);
+        var joy_pixels_data = read(gson, joy_pixels, JsonObject.class);
+        var google_fonts_data = read(gson, google_fonts, JsonArray.class);
+        var map = Arrays.stream(iam_cal_data)
+                .collect(Collectors.toMap(e -> e.unified.toLowerCase(Locale.ROOT), Function.identity(),
+                        (x, y) -> x, LinkedHashMap::new));
+
+        for (var e : joy_pixels_data.entrySet()) {
+            JsonObject o = e.getValue().getAsJsonObject();
+            JsonObject ci = o.getAsJsonObject("code_points");
+            var emoji = map.computeIfAbsent(
+                    ci.get("fully_qualified").getAsString(),
+                    EmojiEntry::new);
+            emoji.short_names.add(stripColons(o.get("shortname").getAsString()));
+            for (var s : o.get("shortname_alternates").getAsJsonArray()) {
+                emoji.short_names.add(stripColons(s.getAsString()));
+            }
+        }
+
+        for (var e : google_fonts_data) {
+            for (var e1 : e.getAsJsonObject().get("emoji").getAsJsonArray()) {
+                JsonObject o = e1.getAsJsonObject();
+                JsonArray ci = o.get("base").getAsJsonArray();
+                int[] cps = new int[ci.size()];
+                for (int i = 0; i < cps.length; i++) {
+                    cps[i] = Integer.parseInt(ci.get(i).getAsString());
+                }
                 var emoji = map.computeIfAbsent(
-                        ci.get("fully_qualified").getAsString(),
+                        Arrays.stream(cps).mapToObj(Integer::toHexString)
+                                .collect(Collectors.joining("-")),
                         EmojiEntry::new);
-                emoji.short_names.add(stripColons(o.get("shortname").getAsString()));
-                for (var s : o.get("shortname_alternates").getAsJsonArray()) {
+                for (var s : o.get("shortcodes").getAsJsonArray()) {
                     emoji.short_names.add(stripColons(s.getAsString()));
                 }
             }
+        }
 
-            for (var e : google_fonts_data) {
-                for (var e1 : e.getAsJsonObject().get("emoji").getAsJsonArray()) {
-                    JsonObject o = e1.getAsJsonObject();
-                    JsonArray ci = o.get("base").getAsJsonArray();
-                    int[] cps = new int[ci.size()];
-                    for (int i = 0; i < cps.length; i++) {
-                        cps[i] = Integer.parseInt(ci.get(i).getAsString());
-                    }
-                    var emoji = map.computeIfAbsent(
-                            Arrays.stream(cps).mapToObj(Integer::toHexString)
-                                    .collect(Collectors.joining("-")),
-                            EmojiEntry::new);
-                    for (var s : o.get("shortcodes").getAsJsonArray()) {
-                        emoji.short_names.add(stripColons(s.getAsString()));
-                    }
-                }
-            }
+        var output_data = map.values().stream()
+                .filter(EmojiEntry::validate)
+                .map(EmojiEntry::flatten)
+                .collect(Collectors.toList());
 
-            var output_data = map.values().stream()
-                    .filter(EmojiEntry::validate)
-                    .map(EmojiEntry::flatten)
-                    .collect(Collectors.toList());
-
-            try (Writer writer = new BufferedWriter(new OutputStreamWriter(
-                    new FileOutputStream(output), StandardCharsets.UTF_8))) {
-                gson.toJson(output_data, writer);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        try (Writer writer = new BufferedWriter(new OutputStreamWriter(
+                new FileOutputStream(output), StandardCharsets.UTF_8))) {
+            gson.toJson(output_data, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 

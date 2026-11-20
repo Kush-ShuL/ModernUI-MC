@@ -18,13 +18,18 @@
 
 package icyllis.modernui.mc;
 
+import com.mojang.renderpearl.api.device.GpuDevice;
+import icyllis.arc3d.engine.ContextOptions;
 import icyllis.arc3d.engine.DriverBugWorkarounds;
 import icyllis.modernui.ModernUI;
+import icyllis.modernui.core.Core;
 import icyllis.modernui.graphics.text.FontFamily;
 import icyllis.modernui.text.Typeface;
 import icyllis.modernui.view.WindowManager;
 import net.minecraft.client.Minecraft;
 import org.apache.commons.lang3.StringUtils;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -81,6 +86,35 @@ public abstract class ModernUIClient extends ModernUI {
     public static final String BOOTSTRAP_USE_STAGING_BUFFERS_IN_OPENGL = "arc3d_context_useStagingBuffers";
     public static final String BOOTSTRAP_ALLOW_SPIRV_IN_OPENGL = "arc3d_context_allowGLSPIRV";
     public static final String BOOTSTRAP_SKIP_GL_VERSION_PROMOTION = "modernui_mc_skipGLPromotion";
+
+    public static void initializeRenderBackend(GpuDevice device) {
+        Core.initialize();
+        ContextOptions options = new ContextOptions();
+        String value = getBootstrapProperty(BOOTSTRAP_USE_STAGING_BUFFERS_IN_OPENGL);
+        if (value != null) {
+            options.mUseStagingBuffers = Boolean.parseBoolean(value);
+        }
+        value = getBootstrapProperty(BOOTSTRAP_ALLOW_SPIRV_IN_OPENGL);
+        if (value != null) {
+            options.mAllowGLSPIRV = Boolean.parseBoolean(value);
+        }
+        options.mDriverBugWorkarounds = getGpuDriverBugWorkarounds();
+
+        String backend = device.getDeviceInfo().backendName();
+        boolean initialized = switch (backend) {
+            case "OpenGL" -> Core.initOpenGL(options);
+            case "Vulkan" -> {
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    var features = VkPhysicalDeviceFeatures2.calloc(stack).sType$Default();
+                    yield Core.initVulkan(VulkanIntegration.wrapContext(device, features), options);
+                }
+            }
+            default -> throw new UnsupportedOperationException("Unsupported graphics backend: " + backend);
+        };
+        if (!initialized) {
+            throw new IllegalStateException("Failed to initialize Modern UI on " + backend);
+        }
+    }
 
     public static volatile boolean sInventoryPause;
     public static volatile boolean sRemoveTelemetrySession;

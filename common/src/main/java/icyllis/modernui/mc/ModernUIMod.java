@@ -42,7 +42,6 @@ public abstract class ModernUIMod {
 
     protected static boolean sOptiFineLoaded;
     protected static boolean sIrisApiLoaded;
-    protected static volatile boolean sVulkanModLoaded;
     protected static volatile boolean sLegendaryTooltipsLoaded;
     protected static volatile boolean sUntranslatedItemsLoaded;
 
@@ -79,10 +78,6 @@ public abstract class ModernUIMod {
 
     public static boolean isIrisApiLoaded() {
         return sIrisApiLoaded;
-    }
-
-    public static boolean isVulkanModLoaded() {
-        return sVulkanModLoaded;
     }
 
     public static boolean isLegendaryTooltipsLoaded() {

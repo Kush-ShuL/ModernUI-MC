@@ -19,16 +19,15 @@
 package icyllis.modernui.mc.neoforge;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.renderpearl.api.device.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTexture;
 import icyllis.modernui.mc.ModernUIMod;
 import icyllis.modernui.mc.MuiModApi;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
@@ -43,11 +42,6 @@ public final class MuiForgeApi extends MuiModApi {
 
     public MuiForgeApi() {
         ModernUIMod.LOGGER.info(ModernUIMod.MARKER, "Created MuiForgeAPI");
-    }
-
-    @Override
-    public void loadEffect(GameRenderer gr, Identifier effect) {
-        gr.setPostEffect(effect);
     }
 
     /*@Override

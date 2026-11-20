@@ -19,9 +19,9 @@
 package icyllis.modernui.mc.forge;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.renderpearl.api.device.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTexture;
 import icyllis.modernui.annotation.MainThread;
 import icyllis.modernui.annotation.RenderThread;
 import icyllis.modernui.core.Core;
@@ -29,12 +29,10 @@ import icyllis.modernui.fragment.Fragment;
 import icyllis.modernui.mc.ModernUIMod;
 import icyllis.modernui.mc.MuiModApi;
 import icyllis.modernui.mc.ScreenCallback;
-import icyllis.modernui.mc.mixin.AccessGameRenderer;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
@@ -123,12 +121,6 @@ public final class MuiForgeApi extends MuiModApi {
      */
     public static void postToUiThread(@Nonnull Runnable r) {
         MuiModApi.postToUiThread(r);
-    }
-
-    @Override
-    public void loadEffect(GameRenderer gr, Identifier effect) {
-        // this method is no longer public in Forge patches...
-        ((AccessGameRenderer) gr).invokeSetPostEffect(effect);
     }
 
     /*@Override

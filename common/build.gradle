@@ -25,10 +25,6 @@ dependencies {
     implementation("icyllis.modernui:ModernUI-Markflow:3.12.0") {
         transitive = false
     }
-
-    // VulkanMod_26.1.2-0.6.6.jar
-    api("maven.modrinth:JYQhtZtO:PNODQNIn")
-    compileOnly("org.lwjgl:lwjgl-vulkan:3.4.1")
 }
 
 test {

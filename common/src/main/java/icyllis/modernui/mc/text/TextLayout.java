@@ -23,13 +23,14 @@ import icyllis.modernui.graphics.MathUtil;
 import icyllis.modernui.graphics.text.Font;
 import icyllis.modernui.util.SparseArray;
 import net.minecraft.client.gui.font.glyphs.BakedGlyph;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import org.joml.Matrix4fc;
 
 import javax.annotation.Nonnull;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Random;
@@ -315,7 +316,7 @@ public class TextLayout {
      * @return the total advance, always positive
      */
     public float drawText(@Nonnull final Matrix4fc matrix,
-                          @Nonnull final MultiBufferSource source,
+                          @Nonnull final Function<RenderType, VertexConsumer> source,
                           float x, float top,
                           int r, int g, int b, final int a,
                           final boolean isShadow, int preferredMode,
@@ -375,7 +376,7 @@ public class TextLayout {
                     x - 1, top - 1, x + mTotalAdvance + 1, top + 9,
                     -TextRenderEffect.EFFECT_DEPTH, bgColor, 0, 0
             );
-            var buffer = source.getBuffer(renderable.renderType(compatDisplayMode));
+            var buffer = source.apply(renderable.renderType(compatDisplayMode));
             renderable.render(matrix, buffer, packedLight, false);
         }
 
@@ -403,7 +404,7 @@ public class TextLayout {
                             0, 0
                     );
                     if (renderable != null) {
-                        var buffer = source.getBuffer(renderable.renderType(compatDisplayMode));
+                        var buffer = source.apply(renderable.renderType(compatDisplayMode));
                         renderable.render(matrix, buffer, packedLight, false);
                     }
                 }
@@ -502,7 +503,7 @@ public class TextLayout {
                 prevTexture = texture;
                 prevMode = mode;
                 prevVanillaDisplayMode = vanillaDisplayMode;
-                builder = source.getBuffer(vanillaDisplayMode != null
+                builder = source.apply(vanillaDisplayMode != null
                         ? TextRenderType.getOrCreate(texture, vanillaDisplayMode, isBitmapFont)
                         : TextRenderType.getOrCreate(texture, mode));
             }
@@ -535,7 +536,7 @@ public class TextLayout {
                     x, top, x + mTotalAdvance, top + 9,
                     TextRenderEffect.EFFECT_DEPTH, ~0, 0, 0
             );
-            builder = source.getBuffer(placeholder.renderType(compatDisplayMode));
+            builder = source.apply(placeholder.renderType(compatDisplayMode));
             for (int i = 0, e = glyphs.length; i < e; i++) {
                 final int bits = flags[i];
                 if ((bits & CharacterStyle.EFFECT_MASK) == 0) {
@@ -588,7 +589,7 @@ public class TextLayout {
      */
     @SuppressWarnings("UnnecessaryLocalVariable")
     public void drawTextOutline(@Nonnull Matrix4fc matrix,
-                                @Nonnull MultiBufferSource source,
+                                @Nonnull Function<RenderType, VertexConsumer> source,
                                 final float x, final float top,
                                 int r, int g, int b, int a,
                                 int packedLight) {
@@ -637,7 +638,7 @@ public class TextLayout {
                 ry = Math.round(ry * scale) / scale;
             }*/
             if (builder == null) {
-                builder = source.getBuffer(TextRenderType.getOrCreate(GlyphManager.FONT_SHEET,
+                builder = source.apply(TextRenderType.getOrCreate(GlyphManager.FONT_SHEET,
                         TextRenderType.MODE_SDF_STROKE));
             }
             float uBloat = (glyph.u2 - glyph.u1) / glyph.width;
