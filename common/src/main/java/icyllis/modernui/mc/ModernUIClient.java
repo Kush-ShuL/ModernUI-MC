@@ -28,6 +28,9 @@ import icyllis.modernui.text.Typeface;
 import icyllis.modernui.view.WindowManager;
 import net.minecraft.client.Minecraft;
 import org.apache.commons.lang3.StringUtils;
+import org.lwjgl.opengl.ARBClipControl;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL33C;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2;
 
@@ -102,7 +105,15 @@ public abstract class ModernUIClient extends ModernUI {
 
         String backend = device.getDeviceInfo().backendName();
         boolean initialized = switch (backend) {
-            case "OpenGL" -> Core.initOpenGL(options);
+            case "OpenGL" -> {
+                // RenderPearl may already have switched the shared context to zero-to-one depth.
+                var caps = GL.getCapabilities();
+                if (caps.OpenGL45 || caps.GL_ARB_clip_control) {
+                    options.mDepthClipNegativeOneToOne =
+                            GL33C.glGetInteger(ARBClipControl.GL_CLIP_DEPTH_MODE) == ARBClipControl.GL_NEGATIVE_ONE_TO_ONE;
+                }
+                yield Core.initOpenGL(options);
+            }
             case "Vulkan" -> {
                 try (MemoryStack stack = MemoryStack.stackPush()) {
                     var features = VkPhysicalDeviceFeatures2.calloc(stack).sType$Default();

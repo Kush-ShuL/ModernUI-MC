@@ -23,6 +23,7 @@ import icyllis.modernui.mc.text.ModernTextRenderer;
 import icyllis.modernui.mc.text.TextLayout;
 import icyllis.modernui.mc.text.TextLayoutEngine;
 import icyllis.modernui.mc.text.TextRenderType;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.state.gui.GuiTextRenderState;
 import net.minecraft.util.FormattedCharSequence;
@@ -93,6 +94,9 @@ public class MixinGuiTextRenderState {
                 }
             }
         }
-        return layout.prepareTextWithDensity(x, y, color, dropShadow, mode, uniformScale, backgroundColor, xAdj, yAdj);
+        float pixelDensity = isPureTranslation || mode == TextRenderType.MODE_UNIFORM_SCALE
+                ? Minecraft.getInstance().getWindow().getGuiScale() * ctm.m00() : 0;
+        return layout.prepareTextWithDensity(x, y, color, dropShadow, mode, uniformScale,
+                backgroundColor, xAdj, yAdj, pixelDensity);
     }
 }

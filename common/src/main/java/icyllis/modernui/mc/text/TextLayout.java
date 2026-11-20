@@ -668,7 +668,8 @@ public class TextLayout {
     public ModernPreparedText prepareTextWithDensity(float x, float top,
                                                      final int color, final boolean dropShadow,
                                                      int preferredMode, final float uniformScale,
-                                                     final int bgColor, float xAdj, float yAdj) {
+                                                     final int bgColor, float xAdj, float yAdj,
+                                                     float pixelDensity) {
         final float density;
         final BakedGlyph[] glyphs;
         if (preferredMode == TextRenderType.MODE_SDF_FILL) {
@@ -688,8 +689,8 @@ public class TextLayout {
             density = mCreatedResLevel;
         }
 
-        return new ModernPreparedText(x, top, color, dropShadow, preferredMode, bgColor, xAdj, yAdj, density, glyphs,
-                this);
+        return new ModernPreparedText(x, top, color, dropShadow, preferredMode, bgColor, xAdj, yAdj,
+                density, preferredMode == TextRenderType.MODE_NORMAL ? pixelDensity : 0, glyphs, this);
     }
 
     /**

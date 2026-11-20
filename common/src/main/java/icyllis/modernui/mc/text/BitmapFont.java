@@ -47,6 +47,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static icyllis.modernui.mc.ModernUIMod.LOGGER;
 
@@ -64,6 +65,8 @@ import static icyllis.modernui.mc.ModernUIMod.LOGGER;
  * @since 3.6
  */
 public class BitmapFont implements Font, AutoCloseable {
+
+    private static final AtomicInteger NEXT_TEXTURE_ID = new AtomicInteger();
 
     /**
      * Minecraft allows 256x256 bitmap font texture at most. However, we only want to
@@ -104,9 +107,6 @@ public class BitmapFont implements Font, AutoCloseable {
                        int[][] grid, int rows, int cols,
                        int height, int ascent) {
         mName = name;
-        // add suffix to avoid conflict with GlyphStitcher's naming,
-        // if we use dedicated texture
-        mTextureName = mName.withSuffix("/mui_dedicated");
         mBitmap = bitmap;
         mAscent = ascent;
         mDescent = height - ascent;
@@ -121,6 +121,9 @@ public class BitmapFont implements Font, AutoCloseable {
                 bitmap.getWidth() > Short.MAX_VALUE || bitmap.getHeight() > Short.MAX_VALUE;
         boolean useDedicatedTexture = !isEmpty &&
                 (mSpriteWidth > MAX_ATLAS_DIMENSION || mSpriteHeight > MAX_ATLAS_DIMENSION);
+        // Providers can reference the same PNG while owning separate textures.
+        mTextureName = useDedicatedTexture ? mName.withSuffix("/mui_dedicated/" + NEXT_TEXTURE_ID.getAndIncrement())
+                : GlyphManager.BITMAP_SHEET;
         if (useDedicatedTexture) {
             mBakedGlyphs = new Int2ObjectOpenHashMap<>();
         }
@@ -399,7 +402,7 @@ public class BitmapFont implements Font, AutoCloseable {
     }
 
     public Identifier getCurrentTextureName() {
-        return fitsInAtlas() ? GlyphManager.BITMAP_SHEET : mTextureName;
+        return mTextureName;
     }
 
     // positive
@@ -535,8 +538,8 @@ public class BitmapFont implements Font, AutoCloseable {
             mBitmap = null;
         }
         if (mTexture != null) {
-            mTexture.close();
             Minecraft.getInstance().getTextureManager().release(mTextureName);
+            mTexture = null;
         }
     }
 

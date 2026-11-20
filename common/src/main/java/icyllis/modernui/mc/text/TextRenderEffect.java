@@ -19,7 +19,7 @@
 package icyllis.modernui.mc.text;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.util.ARGB;
 import org.joml.Matrix3x2fc;
 import org.joml.Matrix4fc;
 
@@ -55,137 +55,50 @@ public class TextRenderEffect {
      */
     public static final float EFFECT_DEPTH = 0.01f;
 
-    // this is a behavior produced from FontTexture.add(),
-    // FontSet will add SpecialGlyphs.MISSING and then SpecialGlyphs.WHITE,
-    // WHITE will be LTRB (0,9,5,17)
-    public static final float
-            U0 = (0+0.01f) / 256f,
-            U1 = (5-0.01f) / 256f,
-            V0 = (9+0.01f) / 256f,
-            V1 = (17-0.01f) / 256f;
-
-    /*
-     * Start X offset of this effect to the start x of the whole text
-     */
-    //protected final float start;
-
-    /*
-     * End X offset of this effect to the start x of the whole text
-     */
-    //protected final float end;
-
-    /*
-     * The color in 0xRRGGBB format, or {@link FormattingStyle#NO_COLOR}
-     */
-    //protected final int color;
-
-    /*
-     * Combination of {@link #UNDERLINE_MASK} and {@link #STRIKETHROUGH_MASK}
-     */
-    //private final byte type;
-
     private TextRenderEffect() {
     }
 
     public static void drawUnderline(@Nonnull Matrix3x2fc pose, @Nonnull VertexConsumer builder,
                                      float start, float end, float baseline,
                                      int r, int g, int b, int a) {
-        baseline += UNDERLINE_OFFSET;
-        builder.addVertexWith2DPose(pose, start, baseline + UNDERLINE_THICKNESS)
-                .setColor(r, g, b, a)
-                .setUv(U0, V1)
-                .setLight(LightCoordsUtil.FULL_BRIGHT);
-        builder.addVertexWith2DPose(pose, end, baseline + UNDERLINE_THICKNESS)
-                .setColor(r, g, b, a)
-                .setUv(U1, V1)
-                .setLight(LightCoordsUtil.FULL_BRIGHT);
-        builder.addVertexWith2DPose(pose, end, baseline)
-                .setColor(r, g, b, a)
-                .setUv(U1, V0)
-                .setLight(LightCoordsUtil.FULL_BRIGHT);
-        builder.addVertexWith2DPose(pose, start, baseline)
-                .setColor(r, g, b, a)
-                .setUv(U0, V0)
-                .setLight(LightCoordsUtil.FULL_BRIGHT);
-    }
-
-    public static void drawUnderline(@Nonnull Matrix4fc matrix, @Nonnull VertexConsumer builder,
-                                     float start, float end, float baseline,
-                                     int r, int g, int b, int a, int light) {
-        baseline += UNDERLINE_OFFSET;
-        builder.addVertex(matrix, start, baseline + UNDERLINE_THICKNESS, EFFECT_DEPTH)
-                .setColor(r, g, b, a)
-                .setUv(U0, V1)
-                .setLight(light);
-        builder.addVertex(matrix, end, baseline + UNDERLINE_THICKNESS, EFFECT_DEPTH)
-                .setColor(r, g, b, a)
-                .setUv(U1, V1)
-                .setLight(light);
-        builder.addVertex(matrix, end, baseline, EFFECT_DEPTH)
-                .setColor(r, g, b, a)
-                .setUv(U1, V0)
-                .setLight(light);
-        builder.addVertex(matrix, start, baseline, EFFECT_DEPTH)
-                .setColor(r, g, b, a)
-                .setUv(U0, V0)
-                .setLight(light);
+        drawLine(pose, builder, start, end, baseline + UNDERLINE_OFFSET, UNDERLINE_THICKNESS, r, g, b, a);
     }
 
     public static void drawStrikethrough(@Nonnull Matrix3x2fc pose, @Nonnull VertexConsumer builder,
                                          float start, float end, float baseline,
                                          int r, int g, int b, int a) {
-        baseline += STRIKETHROUGH_OFFSET;
-        builder.addVertexWith2DPose(pose, start, baseline + STRIKETHROUGH_THICKNESS)
-                .setColor(r, g, b, a)
-                .setUv(U0, V1)
-                .setLight(LightCoordsUtil.FULL_BRIGHT);
-        builder.addVertexWith2DPose(pose, end, baseline + STRIKETHROUGH_THICKNESS)
-                .setColor(r, g, b, a)
-                .setUv(U1, V1)
-                .setLight(LightCoordsUtil.FULL_BRIGHT);
-        builder.addVertexWith2DPose(pose, end, baseline)
-                .setColor(r, g, b, a)
-                .setUv(U1, V0)
-                .setLight(LightCoordsUtil.FULL_BRIGHT);
-        builder.addVertexWith2DPose(pose, start, baseline)
-                .setColor(r, g, b, a)
-                .setUv(U0, V0)
-                .setLight(LightCoordsUtil.FULL_BRIGHT);
+        drawLine(pose, builder, start, end, baseline + STRIKETHROUGH_OFFSET, STRIKETHROUGH_THICKNESS, r, g, b, a);
+    }
+
+    public static void drawUnderline(@Nonnull Matrix4fc matrix, @Nonnull VertexConsumer builder,
+                                     float start, float end, float baseline,
+                                     int r, int g, int b, int a, int light) {
+        drawLine(matrix, builder, start, end, baseline + UNDERLINE_OFFSET, UNDERLINE_THICKNESS,
+                ARGB.color(a, r, g, b), light);
     }
 
     public static void drawStrikethrough(@Nonnull Matrix4fc matrix, @Nonnull VertexConsumer builder,
                                          float start, float end, float baseline,
                                          int r, int g, int b, int a, int light) {
-        baseline += STRIKETHROUGH_OFFSET;
-        builder.addVertex(matrix, start, baseline + STRIKETHROUGH_THICKNESS, EFFECT_DEPTH)
-                .setColor(r, g, b, a)
-                .setUv(U0, V1)
-                .setLight(light);
-        builder.addVertex(matrix, end, baseline + STRIKETHROUGH_THICKNESS, EFFECT_DEPTH)
-                .setColor(r, g, b, a)
-                .setUv(U1, V1)
-                .setLight(light);
-        builder.addVertex(matrix, end, baseline, EFFECT_DEPTH)
-                .setColor(r, g, b, a)
-                .setUv(U1, V0)
-                .setLight(light);
-        builder.addVertex(matrix, start, baseline, EFFECT_DEPTH)
-                .setColor(r, g, b, a)
-                .setUv(U0, V0)
-                .setLight(light);
+        drawLine(matrix, builder, start, end, baseline + STRIKETHROUGH_OFFSET, STRIKETHROUGH_THICKNESS,
+                ARGB.color(a, r, g, b), light);
     }
 
-    /*@Nonnull
-    public static EffectRenderInfo underline(float start, float end, int color) {
-        return new EffectRenderInfo(start, end, color, UNDERLINE);
+    private static void drawLine(Matrix4fc matrix, VertexConsumer builder,
+                                 float left, float right, float top, float thickness,
+                                 int color, int light) {
+        GlyphManager.getInstance().getEffectGlyph()
+                .createEffect(left, top, right, top + thickness, EFFECT_DEPTH, color, 0, 0)
+                .render(matrix, builder, light, false);
     }
 
-    @Nonnull
-    public static EffectRenderInfo strikethrough(float start, float end, int color) {
-        return new EffectRenderInfo(start, end, color, STRIKETHROUGH);
-    }*/
-
-    /*private static RenderType getRenderType(boolean seeThrough) {
-        return seeThrough ? seeThroughType : normalType;
-    }*/
+    private static void drawLine(Matrix3x2fc pose, VertexConsumer builder,
+                                 float left, float right, float top, float thickness,
+                                 int r, int g, int b, int a) {
+        float bottom = top + thickness;
+        builder.addVertexWith2DPose(pose, right, bottom).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, right, top).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, left, top).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, left, bottom).setColor(r, g, b, a);
+    }
 }

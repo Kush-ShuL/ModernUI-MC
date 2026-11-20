@@ -6,16 +6,7 @@
 
 #include <minecraft:dynamictransforms.glsl>
 #include <minecraft:projection.glsl>
-
-layout(std140) uniform ModernTooltip {
-    mat4 u_LocalMat;
-    vec4 u_PushData0;
-    vec3 u_PushData1;
-    vec4 u_PushData2;
-    vec4 u_PushData3;
-    vec4 u_PushData4;
-    vec4 u_PushData5;
-};
+#include <modernui:modern_tooltip.glsl>
 
 layout(location = 0) in vec3 Position;
 layout(location = 1) in vec4 Color;

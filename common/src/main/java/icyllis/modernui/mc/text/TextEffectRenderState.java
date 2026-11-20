@@ -19,8 +19,6 @@
 package icyllis.modernui.mc.text;
 
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.renderpearl.api.textures.FilterMode;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
@@ -67,7 +65,8 @@ public record TextEffectRenderState(
         }
         for (int i = 0, e = flags.length; i < e; i++) {
             final int bits = flags[i];
-            if ((bits & CharacterStyle.EFFECT_MASK) == 0) {
+            if ((bits & CharacterStyle.EFFECT_MASK) == 0 ||
+                    isShadow && (bits & CharacterStyle.NO_SHADOW_MASK) != 0) {
                 continue;
             }
             if ((bits & CharacterStyle.IMPLICIT_COLOR_MASK) != 0) {
@@ -86,6 +85,9 @@ public record TextEffectRenderState(
             }
             final float rx1 = x + positions[i << 1];
             final float rx2 = x + ((i + 1 == e) ? totalAdvance : positions[(i + 1) << 1]);
+            if (rx1 >= rx2) {
+                continue;
+            }
             if ((bits & CharacterStyle.STRIKETHROUGH_MASK) != 0) {
                 TextRenderEffect.drawStrikethrough(pose, builder, rx1, rx2, baseline,
                         r, g, b, a);
@@ -100,17 +102,13 @@ public record TextEffectRenderState(
     @Nonnull
     @Override
     public RenderPipeline pipeline() {
-        return RenderPipelines.GUI_TEXT;
+        return RenderPipelines.GUI;
     }
 
     @Nonnull
     @Override
     public TextureSetup textureSetup() {
-        var placeholder = GlyphManager.getInstance().getEffectGlyph().createEffect(
-                x, top, x + totalAdvance, top + 9, 0, ~0, 0, 0
-        );
-        return TextureSetup.singleTextureWithLightmap(placeholder.textureView(),
-                RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+        return TextureSetup.noTexture();
     }
 
     @Nullable

@@ -24,7 +24,6 @@ import net.minecraft.client.gui.font.glyphs.BakedGlyph;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
-import net.minecraft.util.LightCoordsUtil;
 import org.joml.Matrix3x2fc;
 
 import javax.annotation.Nonnull;
@@ -34,7 +33,7 @@ import javax.annotation.Nullable;
  * Similar to {@link net.minecraft.client.renderer.state.gui.GlyphRenderState}.
  *
  * @param isColorEmoji whether the run is color emoji
- * @param isDirectMask whether the whole text uses normal or uniform scale
+ * @param pixelDensity pixels per GUI unit after transformation, or zero when snapping is disabled
  */
 public record TextRunRenderState(
         Matrix3x2fc pose,
@@ -45,7 +44,7 @@ public record TextRunRenderState(
         BakedGlyph[] glyphs,
         float[] positions, int[] flags,
         int glyphStart, int glyphEnd, boolean isColorEmoji,
-        boolean isDirectMask, float density, float shadowOffset
+        float density, float pixelDensity, float shadowOffset
 ) implements GuiElementRenderState {
     @Override
     public void buildVertices(@Nonnull VertexConsumer vertexConsumer) {
@@ -122,10 +121,9 @@ public record TextRunRenderState(
                 w = glyph.width * invDensity;
                 h = glyph.height * invDensity;
             }
-            if (isDirectMask) {
-                // align to screen pixel center in 2D
-                rx = Math.round(rx * density) * invDensity;
-                ry = Math.round(ry * density) * invDensity;
+            if (pixelDensity > 0) {
+                rx = Math.round(rx * pixelDensity) / pixelDensity;
+                ry = Math.round(ry * pixelDensity) / pixelDensity;
             }
             if (isColorEmoji) {
                 r = 0xff;
@@ -153,20 +151,16 @@ public record TextRunRenderState(
             }
             builder.addVertexWith2DPose(pose, rx + upSkew, ry)
                     .setColor(r, g, b, a)
-                    .setUv(glyph.u1, glyph.v1)
-                    .setLight(LightCoordsUtil.FULL_BRIGHT);
+                    .setUv(glyph.u1, glyph.v1);
             builder.addVertexWith2DPose(pose, rx + downSkew, ry + h)
                     .setColor(r, g, b, a)
-                    .setUv(glyph.u1, glyph.v2)
-                    .setLight(LightCoordsUtil.FULL_BRIGHT);
+                    .setUv(glyph.u1, glyph.v2);
             builder.addVertexWith2DPose(pose, rx + w + downSkew, ry + h)
                     .setColor(r, g, b, a)
-                    .setUv(glyph.u2, glyph.v2)
-                    .setLight(LightCoordsUtil.FULL_BRIGHT);
+                    .setUv(glyph.u2, glyph.v2);
             builder.addVertexWith2DPose(pose, rx + w + upSkew, ry)
                     .setColor(r, g, b, a)
-                    .setUv(glyph.u2, glyph.v1)
-                    .setLight(LightCoordsUtil.FULL_BRIGHT);
+                    .setUv(glyph.u2, glyph.v1);
         }
     }
 

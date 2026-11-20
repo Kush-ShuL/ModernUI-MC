@@ -51,13 +51,14 @@ import java.util.ArrayList;
 public class ModernPreparedText implements Font.PreparedText {
 
     public static final ModernPreparedText EMPTY = new ModernPreparedText(
-            1, 0, false, 0, 0,
+            1, 0, 0, false, 0, 0,
             0, 0, 0, 0, null,
             new ArrayList<>(), false, 0,
             null, null, null, new ArrayList<>()
     );
 
     private final float density;
+    private final float pixelDensity;
     private final float shadowOffset;
     private final boolean dropShadow;
     private final int color;
@@ -75,12 +76,13 @@ public class ModernPreparedText implements Font.PreparedText {
     private final int[] flags;
     private final ArrayList<TextRenderable> customRenderables;
 
-    ModernPreparedText(float density, float shadowOffset, boolean dropShadow, int color,
+    ModernPreparedText(float density, float pixelDensity, float shadowOffset, boolean dropShadow, int color,
                        int bgColor, float x, float top, float xAdj, float yAdj, ScreenRectangle bounds,
                        ArrayList<TextRun> runs, boolean hasEffect, float totalAdvance,
                        BakedGlyph[] glyphs, float[] positions, int[] flags,
                        ArrayList<TextRenderable> customRenderables) {
         this.density = density;
+        this.pixelDensity = pixelDensity;
         this.shadowOffset = shadowOffset;
         this.dropShadow = dropShadow;
         this.color = color;
@@ -101,15 +103,14 @@ public class ModernPreparedText implements Font.PreparedText {
 
     ModernPreparedText(float x, float top, int color, boolean dropShadow,
                        int preferredMode, int bgColor, float xAdj, float yAdj,
-                       float density, BakedGlyph[] glyphs, TextLayout layout) {
+                       float density, float pixelDensity, BakedGlyph[] glyphs, TextLayout layout) {
 
         final float invDensity = 1.0f / density;
         float shadowOffset = 0;
         if (dropShadow) {
             shadowOffset = ModernTextRenderer.sShadowOffset;
-            if (preferredMode == TextRenderType.MODE_NORMAL) {
-                // align to screen pixel center in 2D
-                shadowOffset = Math.round(shadowOffset * density) * invDensity;
+            if (pixelDensity > 0) {
+                shadowOffset = Math.round(shadowOffset * pixelDensity) / pixelDensity;
             }
         }
 
@@ -235,8 +236,7 @@ public class ModernPreparedText implements Font.PreparedText {
                         mode == TextRenderType.MODE_SDF_FILL
                                 ? RenderSystem.getSamplerCache().getRepeat(FilterMode.LINEAR)
                                 : texture.getSampler(),
-                        i, isColorEmoji,
-                        preferredMode == TextRenderType.MODE_NORMAL));
+                        i, isColorEmoji));
             }
             float upSkew = 0;
             float downSkew = 0;
@@ -267,6 +267,7 @@ public class ModernPreparedText implements Font.PreparedText {
 
 
         this.density = density;
+        this.pixelDensity = pixelDensity;
         this.shadowOffset = shadowOffset;
         this.dropShadow = dropShadow;
         this.color = color;
@@ -337,13 +338,12 @@ public class ModernPreparedText implements Font.PreparedText {
             var run = runs.get(i);
             renderState.addGlyphToCurrentLayer(
                     new TextRunRenderState(pose, run.pipeline,
-                            TextureSetup.singleTextureWithLightmap(run.textureView, run.sampler),
+                            TextureSetup.singleTexture(run.textureView, run.sampler),
                             scissor,
                             x, top, color, dropShadow,
                             glyphs, positions, flags,
                             run.glyphStart, run.glyphEnd,
-                            run.isColorEmoji, run.isDirectMask,
-                            density, shadowOffset)
+                            run.isColorEmoji, density, pixelDensity, shadowOffset)
             );
         }
         if (hasEffect) {
@@ -368,16 +368,14 @@ public class ModernPreparedText implements Font.PreparedText {
         public final int glyphStart;
         public int glyphEnd;
         public final boolean isColorEmoji;
-        public final boolean isDirectMask;
 
         public TextRun(RenderPipeline pipeline, GpuTextureView textureView, GpuSampler sampler,
-                       int glyphStart, boolean isColorEmoji, boolean isDirectMask) {
+                       int glyphStart, boolean isColorEmoji) {
             this.pipeline = pipeline;
             this.textureView = textureView;
             this.sampler = sampler;
             this.glyphStart = glyphStart;
             this.isColorEmoji = isColorEmoji;
-            this.isDirectMask = isDirectMask;
         }
     }
 }
