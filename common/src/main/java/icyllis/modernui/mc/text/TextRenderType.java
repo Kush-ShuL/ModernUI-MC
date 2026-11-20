@@ -64,7 +64,9 @@ public abstract class TextRenderType {
     private static final String NORMAL_SHADER = "rendertype_modern_text_normal";
     private static final String FILL_SHADER = "rendertype_modern_text_sdf_fill";
     private static final String STROKE_SHADER = "rendertype_modern_text_sdf_stroke";
+    private static final ColorTargetState TRANSLUCENT_TARGET = new ColorTargetState(BlendFunction.TRANSLUCENT);
 
+    // The shared snippet leaves color targets to either the individual pipeline or the OIT stage.
     public static final RenderPipeline.Snippet PIPELINE_SDF_SNIPPET = RenderPipeline.builder()
             .withVertexShader(Identifier.withDefaultNamespace("core/text"))
             .withBindGroupLayout(BindGroupLayouts.GLOBALS)
@@ -73,7 +75,6 @@ public abstract class TextRenderType {
             .withBindGroupLayout(BindGroupLayouts.FOG)
             .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
             .withBindGroupLayout(BindGroupLayouts.SAMPLER2)
-            .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_LIGHTMAP_COLOR)
             .withPrimitiveTopology(PrimitiveTopology.QUADS)
             .buildSnippet();
@@ -84,7 +85,7 @@ public abstract class TextRenderType {
             .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
             .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
             .withShaderDefine("IS_GUI")
-            .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+            .withColorTargetState(TRANSLUCENT_TARGET)
             .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
             .withPrimitiveTopology(PrimitiveTopology.QUADS)
             .withDepthStencilState(Optional.empty())
@@ -107,6 +108,7 @@ public abstract class TextRenderType {
 
     public static final RenderPipeline PIPELINE_NORMAL = RenderPipeline.builder(PIPELINE_SNIPPET)
             .withLocation(ModernUIMod.location("pipeline/modern_text_normal"))
+            .withColorTargetState(TRANSLUCENT_TARGET)
             .withDepthStencilState(DepthStencilState.DEFAULT)
             .build();
 
@@ -117,11 +119,13 @@ public abstract class TextRenderType {
 
     public static final RenderPipeline PIPELINE_SDF_FILL = RenderPipeline.builder(FILL_SNIPPET)
             .withLocation(ModernUIMod.location("pipeline/modern_text_sdf_fill"))
+            .withColorTargetState(TRANSLUCENT_TARGET)
             .withDepthStencilState(SDF_DEPTH)
             .build();
 
     public static final RenderPipeline PIPELINE_SDF_STROKE = RenderPipeline.builder(STROKE_SNIPPET)
             .withLocation(ModernUIMod.location("pipeline/modern_text_sdf_stroke"))
+            .withColorTargetState(TRANSLUCENT_TARGET)
             .withDepthStencilState(SDF_DEPTH)
             .build();
 
