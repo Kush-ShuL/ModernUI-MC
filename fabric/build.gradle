@@ -75,6 +75,9 @@ dependencies {
     shadow("dev.icyllis:modernui-core:${core_version}") {
         transitive = false
     }
+    // Modern UI's desktop classes still reference GLFW types during JVM verification.
+    runtimeOnly("org.lwjgl:lwjgl-glfw:${lwjgl_version}")
+    include("org.lwjgl:lwjgl-glfw:${lwjgl_version}")
     implementation("icyllis.modernui:ModernUI-Markflow:3.12.0") {
         exclude group: 'icyllis.modernui'
     }
